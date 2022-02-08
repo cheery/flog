@@ -25,6 +25,8 @@ class InferCode(Combinator):
 
     def go(self, state):
         term = obj.to_data(self.term)
+        #import os
+        #os.write(2, "typechecking %s\n" % term.rep())
         if term.tag == 0: #Var  = lambda index:        obj.Data(0, [obj.from_integer(index)])
             index = obj.to_integer(term.args[0])
             goal = conj(
@@ -102,7 +104,7 @@ class InferCode(Combinator):
                 if enum not in self.enums:
                     raise obj.RuntimeTypeError()
                 datatype = self.enums[enum].datatype
-                if datatype.codata:
+                if datatype.co:
                     raise obj.RuntimeTypeError()
                 index = self.enums[enum].index
                 arity = obj.to_integer(case.args[1])
@@ -112,12 +114,14 @@ class InferCode(Combinator):
                 if arity != len(arglist):
                     raise obj.RuntimeTypeError()
                 env = self.env
+                args = []
                 for i in range(arity):
                     k, state = instantiate(arglist[len(arglist) + ~i], table, state)
-                    env = [k] + env
+                    args.append(k)
+                cenv = args + env
                 cn, state = fresh(state)
                 goal = conj(goal,
-                    InferCode(self.types, env,
+                    InferCode(self.types, cenv,
                     case.args[2], cn, self.restype, self.invocations, self.enums))
                 cz, state = fresh(state)
                 goal = conj(goal, append(c1, cn, cz))
@@ -133,7 +137,7 @@ class InferCode(Combinator):
                 if enum not in self.enums:
                     raise obj.RuntimeTypeError()
                 datatype = self.enums[enum].datatype
-                if not datatype.codata:
+                if not datatype.co:
                     raise obj.RuntimeTypeError()
                 index = self.enums[enum].index
                 arity = obj.to_integer(case.args[1])
@@ -142,14 +146,16 @@ class InferCode(Combinator):
                 if arity != len(arglist):
                     raise obj.RuntimeTypeError()
                 env = self.env
+                args = []
                 for i in range(arity):
                     k, state = instantiate(arglist[len(arglist) + ~i], table, state)
-                    env = [k] + env
-                goal = conj(goal, eq(env[0], self.restype))
+                    args.append(k)
+                cenv = args + env
+                goal = conj(goal, eq(args[len(args)-1], self.restype))
                 cn, state = fresh(state)
                 goal = conj(goal,
-                    InferCode(self.types, env,
-                    case.args[2], cn, retty, self.invocations, self.enums))
+                    InferCode(self.types, cenv,
+                        case.args[2], cn, retty, self.invocations, self.enums))
                 cz, state = fresh(state)
                 goal = conj(goal, append(c1, cn, cz))
                 c1 = cz

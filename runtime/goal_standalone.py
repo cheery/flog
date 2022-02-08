@@ -20,9 +20,9 @@ class classMethod(obj.Object):
         return instance.args[self.classIndex].enter(args)
 
 class DataType:
-    def __init__(self, name, codata, cases):
+    def __init__(self, name, co, cases):
         self.name = name
-        self.codata = codata
+        self.co = co
         self.cases = cases
 
 class EnumPoint:
@@ -99,6 +99,20 @@ def normalize_constraints(constraints):
         return ukanren.get_constraints(nstates[0])
     raise obj.RuntimeTypeError()
 
+def register_datatype(datatype, types, enums, names):
+    for index in range(len(datatype.cases)):
+        name, args, _ = datatype.cases[index]
+        types[name] = make_type(index, datatype)
+        enums[name] = EnumPoint(datatype, index)
+        names[name] = Enum(index, len(args), datatype.co)
+
+    #import os
+    #for name, args, retype in datatype.cases:
+    #    os.write(2,"row %s" % name.encode('utf-8'))
+    #    for arg in args:
+    #        os.write(2,"  %s\n" % arg.rep())
+    #    os.write(2,"  → %s\n" % retype.rep())
+
 def make_type(index, datatype):
     _, args, retype = datatype.cases[index]
     for arg in reversed(args):
@@ -129,13 +143,8 @@ def load_fd(fd):
                     transform.TName(obj.from_string(u"List")),
                     transform.TVar(0)))
     ])
-    types[u"nil"] = make_type(0, ListT)
-    enums[u"nil"] = EnumPoint(ListT, 0)
-    names[u"nil"] = Enum(0, 0, co=False)
+    register_datatype(ListT, types, enums, names)
 
-    types[u"cons"] = make_type(1, ListT)
-    enums[u"cons"] = EnumPoint(ListT, 1)
-    names[u"cons"] = Enum(1, 2, co=False)
     StreamT = DataType(u"Stream", True, [
         (u"hd", [
             transform.TApp(transform.TName(obj.from_string(u"Stream")),
@@ -148,15 +157,7 @@ def load_fd(fd):
                     transform.TName(obj.from_string(u"Stream")),
                     transform.TVar(0)))
     ])
-    types[u"hd"] = make_type(0, StreamT)
-    enums[u"hd"] = EnumPoint(StreamT, 0)
-    names[u"hd"] = Enum(0, 1, co=True)
-
-    types[u"tl"] = make_type(1, StreamT)
-    enums[u"tl"] = EnumPoint(StreamT, 1)
-    names[u"tl"] = Enum(1, 1, co=True)
-
-        
+    register_datatype(StreamT, types, enums, names)
 
     constraints_tab[u"And"] = And
     constraints_tab[u"Lb"] = Lb
@@ -230,6 +231,36 @@ def load_fd(fd):
                 raise obj.RuntimeTypeError()
             reps[name] = rep
             depends[name] = transform.nametable(rep, {})
+        elif entry.tag == 2: # DataDecl
+            name = obj.to_string(entry.args[0])
+            parms = entry.args[1]
+            rows = []
+            for struc in obj.to_list(entry.args[2]):
+                struc = obj.to_data(struc)
+                table = {}
+                row_name = obj.to_string(struc.args[0])
+                parms = []
+                for parm in obj.to_list(struc.args[1]):
+                    parm = transform.type_rep(parm, table)
+                    parms.append(parm)
+                rows.append((row_name, parms, parms.pop()))
+            dt = DataType(name, False, rows)
+            register_datatype(dt, types, enums, names)
+        elif entry.tag == 3: # CodataDecl
+            name = obj.to_string(entry.args[0])
+            parms = entry.args[1]
+            rows = []
+            for struc in obj.to_list(entry.args[2]):
+                struc = obj.to_data(struc)
+                table = {}
+                row_name = obj.to_string(struc.args[0])
+                parms = []
+                for parm in obj.to_list(struc.args[1]):
+                    parm = transform.type_rep(parm, table)
+                    parms.append(parm)
+                rows.append((row_name, parms, parms.pop()))
+            dt = DataType(name, True, rows)
+            register_datatype(dt, types, enums, names)
 
     components = transform.strongly_connected_components(depends)
     index = 0
@@ -299,8 +330,10 @@ def load_fd(fd):
                 os.write(1, "%s = %s\n" % (name.encode('utf-8'), rterm.rep()))
                 names[name] = evaluator.activate(names, [], rterm)
         else:
+            os.write(1, "not installed\n")
             for name in component:
                 types.pop(name)
+                os.write(1, "  %s = %s\n" % (name.encode('utf-8'), reps[name].rep()))
 
 
     main = names.get(u"main", None)

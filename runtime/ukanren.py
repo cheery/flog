@@ -255,12 +255,12 @@ class eq(Combinator):
         self.t2 = t2
 
     def go(self, state):
-        #import os
         #t1s = walk(self.t1, state.subst).to_str()
         #t2s = walk(self.t2, state.subst).to_str()
-        #os.write(2, "%s = %s\n" % (t1s, t2s))
         t1 = walk(self.t1, state.subst)
         t2 = walk(self.t2, state.subst)
+        #import os
+        #os.write(2, "¤ %s = %s\n" % (t1.rep(), t2.rep()))
         res = unify(t1, t2, state)
         if len(res) == 0:
             #import os
@@ -532,9 +532,6 @@ class Rule(object):
             out.append((True, sig, term))
         return out
 
-#def dual(x, y):
-#    return Term("dual", [x, y])
-
 class AlwaysTrue(obj.Object):
     def __init__(self):
         pass
@@ -543,192 +540,99 @@ class AlwaysTrue(obj.Object):
         return obj.true
 always_true = AlwaysTrue()
 
-# The CHR rule handler returns 'nothing' when guard doesn't pass.
-#def chr_rule(keep, remove, guard=always_true):
-#    def __decorator__(fn):
-#        default_rules.append(Rule(keep, remove, guard, fn))
-#        return fn
-#    return __decorator__
+#codata River $a where
+#    bind : River $a → ($a → River $b) → River $b
+#    plus : River $a → River $a → River $a
+#    step : River $a → Chain $a (River $a)
+#
+#data Chain $a $as where
+#    empty : Chain $a $as
+#    chain : $a → $as → Chain $a $as
+#
+#blank : River $a
+#blank = cocase {
+#    bind _ f  ⇒ blank ;
+#    plus _ ys ⇒ ys ;
+#    step _    ⇒ empty }
+#
+#another : $a → River $a → River $a
+#another x xs = cocase {
+#    bind _ f  ⇒ plus (f x) (bind xs f) ;
+#    plus _ zs ⇒ another x (plus zs xs) ;
+#    step _    ⇒ chain x xs }
+#
+#delayed : River $a → River $a
+#delayed xs = cocase {
+#    bind _ f  ⇒ delayed (bind xs f) ;
+#    plus _ zs ⇒ delayed (plus zs xs) ;
+#    step _    ⇒ step xs }
 
-#X = Hole(0)
-#Y = Hole(1)
-#Z = Hole(2)
+def River(bind, plus, step):
+    return obj.Data(0, [bind, plus, step])
 
-#@chr_rule([], [dual(X, X)])
-#def rule_0(bindings, state):
-#    return ff.go(state)
-#
-#@chr_rule([dual(X, Y)], [dual(Y, Z)])
-#def rule_1(bindings, state):
-#    X = bindings[0]
-#    Y = bindings[1]
-#    Z = bindings[2]
-#    return eq(X, Z).go(state)
-#
-#@chr_rule([dual(X, Y)], [dual(Z, Y)])
-#def rule_2(bindings, state):
-#    X = bindings[0]
-#    Y = bindings[1]
-#    Z = bindings[2]
-#    return eq(X, Z).go(state)
-#
-#@chr_rule([dual(X, Y)], [dual(X, Z)])
-#def rule_3(bindings, state):
-#    X = bindings[0]
-#    Y = bindings[1]
-#    Z = bindings[2]
-#    return eq(Y, Z).go(state)
-#
-#@chr_rule([dual(X, Y)], [dual(Z, X)])
-#def rule_4(bindings, state):
-#    X = bindings[0]
-#    Y = bindings[1]
-#    Z = bindings[2]
-#    return eq(Y, Z).go(state)
+def bind(river, f):
+    river = obj.to_data(river)
+    return obj.call(river.args[0], river, f)
 
-#def atom(name):
-#    return Term(name, [])
-#
-#def ap(x, y):
-#    return Term("ap", [x, y])
-#
-#def tensor(x, y):
-#    return ap(ap(Term("⊗", []), x), y)
-#
-#def par(x, y):
-#    return ap(ap(Term("⅋", []), x), y)
-#
-#def plus(x, y):
-#    return ap(ap(Term("+", []), x), y)
-#
-#def band(x, y):
-#    return ap(ap(Term("&", []), x), y)
-#
-#def ofc(x):
-#    return ap(Term("!", []), x)
-#
-#def que(x):
-#    return ap(Term("?", []), x)
-#
-#unit = Term("1", [])
-#zero = Term("0", [])
-#top = Term("⊤", [])
-#bot = Term("⊥", [])
-#
-#X = Hole(0)
-#Y = Hole(1)
-#Z = Hole(2)
-#
-#@chr_rule([], [dual(tensor(X,Y),Z)])
-#@chr_rule([], [dual(Z,tensor(X,Y))])
-#def rule_5(bindings, state):
-#    C, state = fresh(state)
-#    D, state = fresh(state)
-#    X,Y,Z = bindings[0],bindings[1],bindings[2]
-#    return conj(
-#        eq(Z, par(C,D)),
-#        conj(
-#            constraint(dual(X,C)),
-#            constraint(dual(Y,D)))).go(state)
-#
-#@chr_rule([], [dual(Z, par(X,Y))])
-#@chr_rule([], [dual(par(X,Y), Z)])
-#def rule_6(bindings, state):
-#    C, state = fresh(state)
-#    D, state = fresh(state)
-#    X,Y,Z = bindings[0],bindings[1],bindings[2]
-#    return conj(
-#        eq(Z,tensor(C,D)),
-#        conj(
-#            constraint(dual(X,C)),
-#            constraint(dual(Y,D)))).go(state)
-#
-#@chr_rule([], [dual(Z, plus(X,Y))])
-#@chr_rule([], [dual(plus(X,Y), Z)])
-#def rule_7(bindings, state):
-#    C, state = fresh(state)
-#    D, state = fresh(state)
-#    X,Y,Z = bindings[0],bindings[1],bindings[2]
-#    return conj(
-#        eq(Z,band(C,D)),
-#        conj(
-#            constraint(dual(X,C)),
-#            constraint(dual(Y,D)))).go(state)
-#
-#@chr_rule([], [dual(Z, band(X,Y))])
-#@chr_rule([], [dual(band(X,Y), Z)])
-#def rule_8(bindings, state):
-#    C, state = fresh(state)
-#    D, state = fresh(state)
-#    X,Y,Z = bindings[0],bindings[1],bindings[2]
-#    return conj(
-#        eq(Z,plus(C,D)),
-#        conj(
-#            constraint(dual(X,C)),
-#            constraint(dual(Y,D)))).go(state)
-#
-#@chr_rule([], [dual(Y, ofc(X))])
-#@chr_rule([], [dual(ofc(X), Y)])
-#def rule_9(bindings, state):
-#    C, state = fresh(state)
-#    X,Y = bindings[0],bindings[1]
-#    return conj(
-#        eq(Y,que(C)),
-#            constraint(dual(X,C))).go(state)
-#
-#@chr_rule([], [dual(Y, que(X))])
-#@chr_rule([], [dual(que(X), Y)])
-#def rule_10(bindings, state):
-#    C, state = fresh(state)
-#    X,Y = bindings[0],bindings[1]
-#    return conj(
-#        eq(Y,ofc(C)),
-#            constraint(dual(X,C))).go(state)
-#
-#@chr_rule([], [dual(X, unit)])
-#@chr_rule([], [dual(unit, X)])
-#def rule_11(bindings, state):
-#    X = bindings[0]
-#    return eq(X,bot).go(state)
-#
-#@chr_rule([], [dual(X, bot)])
-#@chr_rule([], [dual(bot, X)])
-#def rule_12(bindings, state):
-#    X = bindings[0]
-#    return eq(X,unit).go(state)
-#
-#@chr_rule([], [dual(X, zero)])
-#@chr_rule([], [dual(zero, X)])
-#def rule_13(bindings, state):
-#    X = bindings[0]
-#    return eq(X,top).go(state)
-#
-#@chr_rule([], [dual(X, top)])
-#@chr_rule([], [dual(top, X)])
-#def rule_13(bindings, state):
-#    X = bindings[0]
-#    return eq(X,zero).go(state)
-#
-#def demonstration():
-#    state = empty()
-#    x, state = fresh(state)
-#    y, state = fresh(state)
-#    z, state = fresh(state)
-#    w, state = fresh(state)
-#    h, state = fresh(state)
-#    goal = conj(constraint(Term("dual", [x, y])),
-#                constraint(Term("dual", [tensor(unit,par(x, y)), h])))
-#
-#    import os
-#    os.write(1, "results for\n")
-#    for state in goal.go(state):
-#        os.write(1, "result:\n")
-#        for var in state.subst:
-#            os.write(1, "  %d = %s\n" % (var, walk(state.subst[var], state.subst).to_str()))
-#        for cs in state.constraints.itervalues():
-#            for c in cs.itervalues():
-#                if alive(c, state):
-#                    os.write(1, "  %s\n" % c.term.to_str())
-#
-#if __name__=="__main__":
-#    demonstration()
+def plus(river, other):
+    river = obj.to_data(river)
+    return obj.call(river.args[1], river, other)
+
+def step(river):
+    river = obj.to_data(river)
+    return obj.call(river.args[2], river)
+
+class river_handler(obj.Object):
+    def __init__(self, mode, env):
+        self.mode = mode
+        self.env = env
+
+    def enter(self, args):
+        mode = self.mode
+        env = self.env
+        if mode == 0: # blank
+            return River(
+                blank,
+                river_handler(1, []),
+                obj.Data(0, []))
+        if mode == 1:
+            ys = args[len(args) + ~1]
+            return ys
+        if mode == 2: # another
+            x = args[len(args) + ~0]
+            xs = args[len(args) + ~1]
+            return River(
+                river_handler(3, [x, xs]),
+                river_handler(4, [x, xs]),
+                obj.Data(1, [x, xs]))
+        if mode == 3: # plus (f x) (bind xs f)
+            x = env[0]
+            xs = env[1]
+            f = args[len(args) + ~1]
+            return plus(call(f, x), bind(xs, f))
+        if mode == 4: # another x (plus zs xs)
+            x = env[0]
+            xs = env[1]
+            zs = args[len(args) + ~1]
+            return call(another, x, plus(zs, xs))
+        if mode == 5: # delayed
+            xs = args[len(args) + ~0]
+            return River(
+                river_handler(6, [xs]),
+                river_handler(7, [xs]),
+                river_handler(8, [xs]))
+        if mode == 6: # delayed (bind xs f)
+            xs = env[0]
+            f = args[len(args) + ~1]
+            return call(delayed, bind(xs, f))
+        if mode == 7: # delayed (plus zs xs)
+            xs = env[0]
+            zs = args[len(args) + ~1]
+            return call(delayed, plus(zs, xs))
+        if mode == 8: # step xs
+            xs = env[0]
+            return step(xs)
+
+blank = river_handler(0, [])
+another = river_handler(2, [])
+delayed = river_handler(5, [])

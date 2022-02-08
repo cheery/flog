@@ -35,15 +35,6 @@ class String(Object):
     def rep(self):
         return '"' + str(self.string.encode('utf-8')) + '"'
 
-class Bool(Object):
-    def __init__(self, boolean):
-        self.boolean = boolean
-
-    def rep(self):
-        if self.boolean:
-            return "true"
-        return "false"
-
 class Data(Object):
     def __init__(self, tag, args):
         self.tag = tag
@@ -124,9 +115,8 @@ def to(value, type):
     else:
         raise RuntimeTypeError()
     
-
-true = Bool(True)
-false = Bool(False)
+true = Data(1, [])
+false = Data(0, [])
 
 def from_bool(boolean):
     if boolean:
@@ -135,8 +125,8 @@ def from_bool(boolean):
         return false
 
 def to_bool(value):
-    result = value.enter([])
-    if isinstance(result, Bool):
-        return result.boolean
-    else:
-        raise RuntimeTypeError()
+    return to_data(value).tag > 0
+
+@specialize.call_location()
+def call(value, *args):
+    return value.enter(list(reversed(args)))

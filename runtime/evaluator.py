@@ -112,11 +112,7 @@ def evaluate(names, env, expr, args):
             return PAP(Prog(names, env, data), args)
         return evaluate(names, env, data.args[0], args)
     elif data.tag == 3: # Let
-        binds = obj.to_list(data.args[0])
-        bound_env = []
-        for bind in binds:
-            bound_env.append(activate(names, env, bind))
-        env = env + bound_env
+        env = env + [activate(names, env, data.args[0])]
         return evaluate(names, env, data.args[1], args)
     elif data.tag == 4: # Invoke
         name = obj.to_string(data.args[0])
@@ -127,8 +123,7 @@ def evaluate(names, env, expr, args):
         seq  = obj.to_list(data.args[1])
         data = obj.to_data(activate(names, env, data.args[0]))
         if data.tag < len(seq) and obj.to_integer(seq[data.tag].args[1]) == len(data.args):
-            for arg in reversed(data.args):
-                env = [arg] + env
+            env = env + data.args
             return evaluate(names, env, seq[data.tag].args[2], args)
         else:
             raise obj.RuntimeTypeError()

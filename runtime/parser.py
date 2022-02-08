@@ -140,8 +140,8 @@ class Parser:
             raise ReadError(sym, left, line)
 
     def advance(p, sym, text, start, stop):
-        import os
-        os.write(2, "advance %s %s\n" % (sym.encode('utf-8'), text.rep()))
+        #import os
+        #os.write(2, "advance %s %s\n" % (sym.encode('utf-8'), text.rep()))
         arg = p.get_action(sym, start[0], start[1])
         while arg[0] == 1:
             lhs, count = rstate[arg[1]]

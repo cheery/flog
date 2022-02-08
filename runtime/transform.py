@@ -11,8 +11,6 @@ Case = lambda bind,cases:   obj.Data(6, [bind,cases])
 Cocase = lambda cases:      obj.Data(7, [cases])
 ScopeWalk = lambda term:    obj.Data(8, [term])
 
-#Enum = lambda index, arity: obj.Data(4, [obj.Integer(index), obj.Integer(arity)])
-#Case = lambda arg, alts:    obj.Data(5, [arg, obj.from_list(alts)])
 Cell = lambda ident, arity, term: obj.Data(0, [ident, arity, term])
 
 def internal_rep(term, env):
@@ -56,9 +54,12 @@ def internal_rep(term, env):
             ident = binders[0]
             arity = len(binders)-1
             cenv = env 
+            args = []
             for i in range(arity):
                 b = obj.to_string(binders[len(binders) + ~i])
-                cenv = [b] + cenv
+                #b = obj.to_string(binders[i])
+                args.append(b)
+            cenv = args + cenv
             term = internal_rep(case.args[1], cenv)
             cell = Cell(ident, obj.from_integer(arity), term)
             cases.append(cell)
@@ -71,9 +72,12 @@ def internal_rep(term, env):
             ident = binders[0]
             arity = len(binders)-1
             cenv = env 
+            args = []
             for i in range(arity):
                 b = obj.to_string(binders[len(binders) + ~i])
-                cenv = [b] + cenv
+                #b = obj.to_string(binders[i])
+                args.append(b)
+            cenv = args + cenv
             term = internal_rep(case.args[1], cenv)
             cell = Cell(ident, obj.from_integer(arity), term)
             cases.append(cell)
