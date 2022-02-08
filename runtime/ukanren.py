@@ -10,7 +10,7 @@ class Hole(obj.Object):
     def to_str(self, rbp=0):
         return "$HOLE{" + str(self.key) + "}"
 
-class Storage:
+class Storage(obj.Object):
     def __init__(self, rules, subst, constraints, nextcid, notes, killed, hist):
         self.rules = rules
         self.subst = subst
@@ -532,13 +532,13 @@ class Rule(object):
             out.append((True, sig, term))
         return out
 
-class AlwaysTrue(obj.Object):
-    def __init__(self):
-        pass
+class AlwaysSomething(obj.Object):
+    def __init__(self, something):
+        self.something = something
 
     def enter(self, args):
-        return obj.true
-always_true = AlwaysTrue()
+        return self.something
+always_true = AlwaysSomething(obj.true)
 
 #codata River $a where
 #    bind : River $a → ($a → River $b) → River $b
@@ -567,72 +567,72 @@ always_true = AlwaysTrue()
 #    plus _ zs ⇒ delayed (plus zs xs) ;
 #    step _    ⇒ step xs }
 
-def River(bind, plus, step):
-    return obj.Data(0, [bind, plus, step])
-
-def bind(river, f):
-    river = obj.to_data(river)
-    return obj.call(river.args[0], river, f)
-
-def plus(river, other):
-    river = obj.to_data(river)
-    return obj.call(river.args[1], river, other)
-
-def step(river):
-    river = obj.to_data(river)
-    return obj.call(river.args[2], river)
-
-class river_handler(obj.Object):
-    def __init__(self, mode, env):
-        self.mode = mode
-        self.env = env
-
-    def enter(self, args):
-        mode = self.mode
-        env = self.env
-        if mode == 0: # blank
-            return River(
-                blank,
-                river_handler(1, []),
-                obj.Data(0, []))
-        if mode == 1:
-            ys = args[len(args) + ~1]
-            return ys
-        if mode == 2: # another
-            x = args[len(args) + ~0]
-            xs = args[len(args) + ~1]
-            return River(
-                river_handler(3, [x, xs]),
-                river_handler(4, [x, xs]),
-                obj.Data(1, [x, xs]))
-        if mode == 3: # plus (f x) (bind xs f)
-            x = env[0]
-            xs = env[1]
-            f = args[len(args) + ~1]
-            return plus(call(f, x), bind(xs, f))
-        if mode == 4: # another x (plus zs xs)
-            x = env[0]
-            xs = env[1]
-            zs = args[len(args) + ~1]
-            return call(another, x, plus(zs, xs))
-        if mode == 5: # delayed
-            xs = args[len(args) + ~0]
-            return River(
-                river_handler(6, [xs]),
-                river_handler(7, [xs]),
-                river_handler(8, [xs]))
-        if mode == 6: # delayed (bind xs f)
-            xs = env[0]
-            f = args[len(args) + ~1]
-            return call(delayed, bind(xs, f))
-        if mode == 7: # delayed (plus zs xs)
-            xs = env[0]
-            zs = args[len(args) + ~1]
-            return call(delayed, plus(zs, xs))
-        if mode == 8: # step xs
-            xs = env[0]
-            return step(xs)
-
-blank = river_handler(0, [])
-another = river_handler(2, [])
-delayed = river_handler(5, [])
+#def River(bind, plus, step):
+#    return obj.Data(0, [bind, plus, step])
+#
+#def bind(river, f):
+#    river = obj.to_data(river)
+#    return obj.call(river.args[0], river, f)
+#
+#def plus(river, other):
+#    river = obj.to_data(river)
+#    return obj.call(river.args[1], river, other)
+#
+#def step(river):
+#    river = obj.to_data(river)
+#    return obj.call(river.args[2], river)
+#
+#class river_handler(obj.Object):
+#    def __init__(self, mode, env):
+#        self.mode = mode
+#        self.env = env
+#
+#    def enter(self, args):
+#        mode = self.mode
+#        env = self.env
+#        if mode == 0: # blank
+#            return River(
+#                blank,
+#                river_handler(1, []),
+#                obj.Data(0, []))
+#        if mode == 1:
+#            ys = args[len(args) + ~1]
+#            return ys
+#        if mode == 2: # another
+#            x = args[len(args) + ~0]
+#            xs = args[len(args) + ~1]
+#            return River(
+#                river_handler(3, [x, xs]),
+#                river_handler(4, [x, xs]),
+#                obj.Data(1, [x, xs]))
+#        if mode == 3: # plus (f x) (bind xs f)
+#            x = env[0]
+#            xs = env[1]
+#            f = args[len(args) + ~1]
+#            return plus(call(f, x), bind(xs, f))
+#        if mode == 4: # another x (plus zs xs)
+#            x = env[0]
+#            xs = env[1]
+#            zs = args[len(args) + ~1]
+#            return call(another, x, plus(zs, xs))
+#        if mode == 5: # delayed
+#            xs = args[len(args) + ~0]
+#            return River(
+#                river_handler(6, [xs]),
+#                river_handler(7, [xs]),
+#                river_handler(8, [xs]))
+#        if mode == 6: # delayed (bind xs f)
+#            xs = env[0]
+#            f = args[len(args) + ~1]
+#            return call(delayed, bind(xs, f))
+#        if mode == 7: # delayed (plus zs xs)
+#            xs = env[0]
+#            zs = args[len(args) + ~1]
+#            return call(delayed, plus(zs, xs))
+#        if mode == 8: # step xs
+#            xs = env[0]
+#            return step(xs)
+#
+#blank = river_handler(0, [])
+#another = river_handler(2, [])
+#delayed = river_handler(5, [])
