@@ -1,0 +1,170 @@
+lexemes id, integer, real, string
+
+file: headers contents
+
+headers:
+headers: header headers
+
+header: "import" id
+      | "import" id "using" names
+      | "export" names
+
+names: name
+     | name "," names
+
+name: id
+    | id "⇒" id
+
+contents: WFB stmt
+contents: contents VALIGN WFB stmt
+
+stmt: id ":" type
+stmt: id ":" constraints "⇒" type
+stmt: id binders0 "=" term
+stmt: "data" id binders0
+stmt: "data" id binders0 "where" structors
+stmt: "codata" id binders0 "where" structors
+stmt: "class" classrow "where" structors
+stmt: "derive" classrow
+stmt: "instance" classrow "where" impls
+
+classrow: call
+        | constraints "⇒" call
+
+impls: WFB impl
+     | impls VALIGN WFB impl
+
+impl: id binders0 "=" term
+
+structors: WFB structor
+         | structors VALIGN WFB structor
+
+structor: id ":" params
+params: disj
+      | disj "→" params
+
+constraints: call
+           | call "," constraints
+
+terms: term
+     | term "," terms
+
+args:
+args: id args
+
+term: monad
+
+type: disj
+    | disj "→" type
+
+monad: let
+     | let ";" monad
+     | let ";" id "←" monad
+
+let: lambda
+     | id "is" lambda ";" let
+
+lambda: disj
+      | id "↦" lambda
+      | "λ" binders "." lambda
+      | "∃" binders "." lambda
+
+binders0:
+binders0: binders
+
+binders: id
+       | id binders
+
+disj: conj2
+    | conj2 "⊔" disj
+
+conj2: disj2
+    | disj2 "⊓" conj2
+
+disj2: conj
+     | conj "∨" disj2
+
+conj: not
+    | not "∧" conj
+
+not: delay
+   | "¬" not
+
+# λx y z. λx.λy.λz.a b c
+# bar hax = ∃x y z. foo ∘ blah ∘ bluh ∧ %bar hax ⊔ guux ∧ x=y ∧ {holder}
+# foo; x=bar; z=guux; zip; zap
+# x=foo; y=bar; zip
+
+delay: equals
+     | "{" term "}"
+     | "%" equals
+
+equals: comp
+      | comp "<" comp
+      | comp ">" comp
+      | comp "≤" comp
+      | comp "≥" comp
+      | comp "=" comp
+      | comp "≠" comp
+
+comp: add
+    | add "∘" comp
+
+add: mul
+   | mul "+" add
+   | mul "-" add
+
+mul: prefix
+   | prefix "*" mul
+   | prefix "/" mul
+
+prefix: exp
+      | "~" prefix
+
+exp: call
+   | call "^" exp
+
+call: prim
+    | call prim
+
+prim: id
+    | "(" sterm ")"
+    | "(" "-" sterm ")"
+    | "(" op ")"
+    | integer
+    | real
+    | string
+    | "[" "]"
+    | "[" terms "]"
+    | "[" terms "|" term "]"
+    | "case" term "{" cases "}"
+    | "cocase" "{" cases "}"
+
+sterm: term
+     | term "→" sterm
+
+cases: case
+     | case ";" cases
+
+case: binders "⇒" lambda
+
+op: "+"
+op: "-"
+op: "*"
+op: "/"
+op: "~"
+op: "^"
+op: "→"
+op: "⊔"
+op: "⊓"
+op: "∨"
+op: "∧"
+op: "¬"
+op: "∘"
+op: "="
+op: "≠"
+op: "≤"
+op: "≥"
+op: "<"
+op: ">"
+
