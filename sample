@@ -1,0 +1,81 @@
+#testi = hello
+#hello : %x → %y → %z
+#hello = λx y. test ∧ testi
+
+#hello x y = 1 ∧ 1
+
+main : List Integer
+main = [temppu [hd sauma,hd (tl sauma),hd sauma]]
+
+temppu : List Integer → Integer
+temppu xs = case xs {
+        nil ⇒ 15;
+        cons y ys ⇒ y }
+
+sauma : Stream Integer
+sauma = cocase { hd _ ⇒ 18; tl t ⇒ t }
+
+koe = [1,2,3]
+
+koe2 xs = [1,2,3|xs]
+
+map : ($a → $b) → List $a → List $b
+map f xs = case xs { nil ⇒ nil; cons y ys ⇒ cons (f y) (map f ys) }
+
+smap : ($a → $b) → Stream $a → Stream $b
+smap f xs = cocase { hd _ ⇒ f (hd xs) ; tl _ ⇒ smap f (tl xs) }
+
+codata River $a where
+    bind : River $a → ($a → River $b) → River $b
+    plus : River $a → River $a → River $a
+    step : River $a → Chain $a (River $a)
+
+data Chain $a $as where
+    empty : Chain $a $as
+    chain : $a → $as → Chain $a $as
+
+blank : River $a
+blank = cocase {
+    bind _ f  ⇒ blank ;
+    plus _ ys ⇒ ys ;
+    step _    ⇒ empty }
+
+another : $a → River $a → River $a
+another x xs = cocase {
+    bind _ f  ⇒ plus (f x) (bind xs f) ;
+    plus _ zs ⇒ another x (plus zs xs) ;
+    step _    ⇒ chain x xs }
+
+delayed : River $a → River $a
+delayed xs = cocase {
+    bind _ f  ⇒ delayed (bind xs f) ;
+    plus _ zs ⇒ delayed (plus zs xs) ;
+    step _    ⇒ step xs }
+
+#data River a where
+#    nil     : River a
+#    cons    : a → River a → River a
+#    delayed : River a → River a
+#
+#data Chain a as where
+#    empty : Chain a as
+#    chain : a → as → Chain a as
+#
+#bind : River a → (a → River b) → River b
+#bind xs f = case xs {
+#    nil        ⇒ nil ;
+#    cons x xs  ⇒ mplus (f x) (bind xs f) ;
+#    delayed xs ⇒ delayed (bind xs f) }
+#
+#mplus : River a → River a → River a
+#mplus xs ys = case xs {
+#    nil        ⇒ ys ;
+#    cons x xs  ⇒ cons x (mplus ys xs) ;
+#    delayed xs ⇒ delayed (mplus ys xs) }
+#
+#step : River a → Chain a (River a)
+#step xs = case xs {
+#    nil ⇒ empty ;
+#    cons x xs ⇒ chain x xs ;
+#    delayed xs ⇒ step xs }
+#
