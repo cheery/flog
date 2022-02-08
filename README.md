@@ -8,8 +8,10 @@
 
 Sequence of terminal commands that do the trick:
 
-    wget https://downloads.python.org/pypy/pypy3.8-v7.3.7-src.tar.bz2
-    tar -xf pypy3.8-v7.3.7-src.tar.bz2
-    pypy3.8-v7.3.7-src/rpython/bin/rpython runtime/goal_standalone.py 
+```
+wget https://downloads.python.org/pypy/pypy3.8-v7.3.7-src.tar.bz2
+tar -xf pypy3.8-v7.3.7-src.tar.bz2
+pypy3.8-v7.3.7-src/rpython/bin/rpython runtime/goal_standalone.py 
+```
 
 On successful compile you obtain the `flog` -executable.
