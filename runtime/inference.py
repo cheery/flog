@@ -13,15 +13,20 @@ from parser import Nil, Cons
 #    constraint_check B X NY Z
 #constraint_check, [Nil, X, Y, Z] <=> true | X=Y
 
-class InferCode(Combinator):
-    def __init__(self, types, env, term, constraints, restype, invocations, enums):
+class Context:
+    def __init__(self, types, enums, invocations, skolems):
         self.types = types
+        self.enums = enums
+        self.invocations = invocations # Filled by InferCode
+        self.skolems = skolems # Used by skolemnize
+
+class InferCode(Combinator):
+    def __init__(self, ctx, env, term, constraints, restype):
+        self.ctx = ctx
         self.env = env
         self.term = term
         self.constraints = constraints
         self.restype = restype
-        self.invocations = invocations
-        self.enums = enums
 
     def go(self, state):
         term = obj.to_data(self.term)
@@ -39,10 +44,10 @@ class InferCode(Combinator):
             c2, state = fresh(state)
             goal = conj(
                 conj(
-                    InferCode(self.types, self.env,
-                        term.args[0], c1, arrow(a, self.restype), self.invocations, self.enums),
-                    InferCode(self.types, self.env,
-                        term.args[1], c2, a, self.invocations, self.enums)),
+                    InferCode(self.ctx, self.env,
+                        term.args[0], c1, arrow(a, self.restype)),
+                    InferCode(self.ctx, self.env,
+                        term.args[1], c2, a)),
                 append(c1, c2, self.constraints))
                 #tt)#eq(self.rterm, transform.App(fn, arg)))
         elif term.tag == 2: #Abs  = lambda body:         obj.Data(2, [body])
@@ -51,8 +56,8 @@ class InferCode(Combinator):
             goal = conj(
                 eq(self.restype, arrow(a, b)),
                 conj(
-                    InferCode(self.types, [a] + self.env,
-                        term.args[0], self.constraints, b, self.invocations, self.enums),
+                    InferCode(self.ctx, [a] + self.env,
+                        term.args[0], self.constraints, b),
                     tt #eq(self.rterm, transform.Abs(body))
                     ))
         elif term.tag == 3: #Let  = lambda bind, body:   obj.Data(3, [bind, body])
@@ -61,19 +66,19 @@ class InferCode(Combinator):
             c2, state = fresh(state)
             goal = conj(
                 conj(
-                    InferCode(self.types, self.env,
-                        term.args[0], c1, a, self.invocations, self.enums),
-                    InferCode(self.types, [a] + self.env,
-                        term.args[1], c2, self.restype, self.invocations, self.enums)),
+                    InferCode(self.ctx, self.env,
+                        term.args[0], c1, a),
+                    InferCode(self.ctx, [a] + self.env,
+                        term.args[1], c2, self.restype)),
                 append(c1, c2, self.constraints))
                 #tt) #eq(self.rterm, transform.Let(bind, body)))
         elif term.tag == 4: #Invoke = lambda name:       obj.Data(4, [name])
             name = obj.to_string(term.args[0])
-            tr = obj.to_data(self.types[name])
+            tr = obj.to_data(self.ctx.types[name])
             table = {}
             t, state = instantiate(tr.args[1], table, state)
             constraints, state = instantiate_constraints(tr.args[0], table, state)
-            self.invocations[term] = t
+            self.ctx.invocations[term] = t
             #t.args[0] constraint list
             #rt = t.args[1] # return type
             #envc = obj.from_integer(len(self.env)) # Where in environment the constraint checkpoint is.
@@ -95,18 +100,18 @@ class InferCode(Combinator):
         elif term.tag == 6: #Case = lambda bind,cases:   obj.Data(6, [bind,cases])
             a, state = fresh(state)
             c1, state = fresh(state)
-            goal = InferCode(self.types, self.env,
-                    term.args[0], c1, a, self.invocations, self.enums)
+            goal = InferCode(self.ctx, self.env,
+                    term.args[0], c1, a)
             for case in obj.to_list(term.args[1]):
                 table = {}
                 case = obj.to_data(case)
                 enum = obj.to_string(case.args[0])
-                if enum not in self.enums:
+                if enum not in self.ctx.enums:
                     raise obj.RuntimeTypeError()
-                datatype = self.enums[enum].datatype
+                datatype = self.ctx.enums[enum].datatype
                 if datatype.co:
                     raise obj.RuntimeTypeError()
-                index = self.enums[enum].index
+                index = self.ctx.enums[enum].index
                 arity = obj.to_integer(case.args[1])
                 arglist = datatype.cases[index][1]
                 retty, state = instantiate(datatype.cases[index][2], table, state)
@@ -116,13 +121,13 @@ class InferCode(Combinator):
                 env = self.env
                 args = []
                 for i in range(arity):
-                    k, state = instantiate(arglist[len(arglist) + ~i], table, state)
+                    k = skolemnize(arglist[len(arglist) + ~i], table, self.ctx)
                     args.append(k)
                 cenv = args + env
                 cn, state = fresh(state)
                 goal = conj(goal,
-                    InferCode(self.types, cenv,
-                    case.args[2], cn, self.restype, self.invocations, self.enums))
+                    InferCode(self.ctx, cenv,
+                    case.args[2], cn, self.restype))
                 cz, state = fresh(state)
                 goal = conj(goal, append(c1, cn, cz))
                 c1 = cz
@@ -134,35 +139,36 @@ class InferCode(Combinator):
                 table = {}
                 case = obj.to_data(case)
                 enum = obj.to_string(case.args[0])
-                if enum not in self.enums:
+                if enum not in self.ctx.enums:
                     raise obj.RuntimeTypeError()
-                datatype = self.enums[enum].datatype
+                datatype = self.ctx.enums[enum].datatype
                 if not datatype.co:
                     raise obj.RuntimeTypeError()
-                index = self.enums[enum].index
+                index = self.ctx.enums[enum].index
                 arity = obj.to_integer(case.args[1])
                 arglist = datatype.cases[index][1]
-                retty, state = instantiate(datatype.cases[index][2], table, state)
+                firstarg, state = instantiate(arglist[0], table, state)
+                retty = skolemnize(datatype.cases[index][2], table, self.ctx)
                 if arity != len(arglist):
                     raise obj.RuntimeTypeError()
                 env = self.env
                 args = []
                 for i in range(arity):
-                    k, state = instantiate(arglist[len(arglist) + ~i], table, state)
+                    k = skolemnize(arglist[len(arglist) + ~i], table, self.ctx)
                     args.append(k)
                 cenv = args + env
                 goal = conj(goal, eq(args[len(args)-1], self.restype))
                 cn, state = fresh(state)
                 goal = conj(goal,
-                    InferCode(self.types, cenv,
-                        case.args[2], cn, retty, self.invocations, self.enums))
+                    InferCode(self.ctx, cenv,
+                        case.args[2], cn, retty))
                 cz, state = fresh(state)
                 goal = conj(goal, append(c1, cn, cz))
                 c1 = cz
             goal = conj(goal, eq(c1, self.constraints))
         elif term.tag == 8: #ScopeWalk = lambda term:    obj.Data(8, [term])
-            goal = InferCode(self.types, self.env,
-                term.args[0], self.constraints, self.restype, self.invocations, self.enums)
+            goal = InferCode(self.ctx, self.env,
+                term.args[0], self.constraints, self.restype)
         else:
             raise obj.RuntimeTypeError()
         return goal.go(state)
@@ -241,6 +247,40 @@ def instantiate_constraints(data, table, state):
             nargs.append(arg)
         constraints.append(obj.Data(0, [con, obj.Data(0, nargs)]))
     return constraints, state
+
+def skolemnize(type, table, context):
+    if isinstance(type, obj.Var):
+        return type
+    type = obj.to_data(type)
+    if type.tag == 0: #TVar  = lambda index:        obj.Data(0, [obj.from_integer(index)])
+        index = obj.to_integer(type.args[0])
+        v = table.get(index, None)
+        if v is None:
+            v = transform.Var(context.skolems)
+            context.skolems += 1
+            table[index] = v
+        return v
+    elif type.tag == 1: #TApp  = lambda fn, arg:      obj.Data(1, [fn, arg])
+        a = skolemnize(type.args[0], table, context)
+        b = skolemnize(type.args[1], table, context)
+        return transform.TApp(a, b)
+    elif type.tag == 2: #TName = lambda name:         obj.Data(2, [name])
+        return type
+    else:
+        raise obj.RuntimeTypeError()
+
+def skolemnize_constraints(data, table, context):
+    constraints = []
+    for c in obj.to_list(data):
+        c = obj.to_data(c)
+        con = c.args[0]
+        datum = obj.to_data(c.args[1])
+        nargs = []
+        for arg in datum.args:
+            arg = skolemnize(arg, table, context)
+            nargs.append(arg)
+        constraints.append(obj.Data(0, [con, obj.Data(0, nargs)]))
+    return obj.from_list(constraints)
 
 class append(Combinator):
     def __init__(self, x, y, xy):

@@ -284,47 +284,49 @@ def load_fd(fd):
                 had_type[name] = None
                 os.write(1, "%s : %s\n" % (name.encode('utf-8'), types[name].rep()))
 
+        contexts = {}
         goal = ukanren.tt
         all_constraints = parser.Nil
-        invocations = {}
         for name in component:
+            ctx = inference.Context(types, enums,
+                invocations = {}, skolems = 0)
             constraints, state = ukanren.fresh(state)
             nall_constraints, state = ukanren.fresh(state)
-            local_invocations = {}
             goal = ukanren.conj(goal,
-                inference.InferCode(types, [], reps[name], constraints,
-                    types[name].args[1], local_invocations, enums))
+                inference.InferCode(ctx, [], reps[name], constraints,
+                    inference.skolemnize(types[name].args[1], {}, ctx)))
             goal = ukanren.conj(goal,
                 inference.append(constraints, all_constraints, nall_constraints))
             all_constraints = nall_constraints
-            invocations[name] = local_invocations
+            contexts[name] = ctx
         nstates = goal.go(state)
         if len(nstates) == 1:
             constraints = ukanren.walk(all_constraints, nstates[0].subst)
             constraints = normalize_constraints(obj.to_list(constraints))
             for name in component:
+                ctx = contexts[name]
                 table = {}
                 if name not in had_type:
                     types[name] = obj.Data(0, [
                         inference.generalize_constraints(constraints, table),
                         inference.generalize(ukanren.walk(types[name].args[1], nstates[0].subst), table)])
                     os.write(1, "%s : %s\n" % (name.encode('utf-8'), types[name].rep()))
-                local_invocations = invocations[name]
+                #local_invocations = invocations[name]
                 os.write(1, "invocation points\n")
-                nlocal_invocations = {}
-                for term, type in local_invocations.iteritems():
+                n_invocations = {}
+                for term, type in ctx.invocations.iteritems():
                     type = ukanren.walk(type, nstates[0].subst)
                     type = inference.generalize(type, table)
-                    nlocal_invocations[term] = type
+                    n_invocations[term] = type
                     os.write(1, "  %s : %s\n" % (term.rep(), type.rep()))
                 #rterm = ukanren.walk(rterms[name], nstates[0].subst)
                 rterm = inference.resolve(reps[name],
                     types[name].args[0],
-                    nlocal_invocations,
-                    types,
+                    n_invocations,
+                    ctx.types,
                     0,
                     instances,
-                    enums)
+                    ctx.enums)
                 for _ in constraints:
                     rterm = transform.Abs(rterm)
                 os.write(1, "%s = %s\n" % (name.encode('utf-8'), rterm.rep()))
